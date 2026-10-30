@@ -5,13 +5,13 @@ Canonical API: `https://purehistory-api.matrixai.one`. Existing explorer: `https
 The retained EPYC 4345P server runs the chain without restart or configuration changes. History dependencies/data and service orchestration live under `/opt/pureeos-hyperion-20261031`; the separately versioned PureHistory source lives under `/opt/purehistory-dual-compat-20261031/source`. Do not delete either directory while services reference it.
 
 ```bash
-systemctl status pureeos-hyperion.service
+systemctl status purehistory.service
 systemctl status pureeos-hyperion-resource-guard.timer
 curl -fsS https://purehistory-api.matrixai.one/v2/health
 curl -fsS https://purehistory-api.matrixai.one/v2/state/get_system_profile
 ```
 
-Use `systemctl stop/start pureeos-hyperion.service` for the whole history stack. Its stop helper first requests a graceful indexer stop, then stops history containers; it does not stop nodeos. Do not blindly apply Docker restart policies to the indexer, which intentionally stops for certain upstream modes. Investigate a stopped indexer before resuming it.
+Use `systemctl stop/start purehistory.service` (`pureeos-hyperion.service` is its retained internal unit name) for the whole history stack. Its stop helper first requests a graceful indexer stop, then stops history containers; it does not stop nodeos. Do not blindly apply Docker restart policies to the indexer, which intentionally stops for certain upstream modes. Investigate a stopped indexer before resuming it.
 
 Public requests are handled by `/etc/nginx/conf.d/purehistory-api.conf`. Dependencies, original RPC, SHIP and the indexer controller bind loopback only. Certificates use HTTP ACME through Cloudflare; renewal deploy hooks validate and reload nginx. Do not expose database or controller ports to make health checks pass.
 
