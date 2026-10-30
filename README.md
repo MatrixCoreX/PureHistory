@@ -1,194 +1,73 @@
-<!--suppress HtmlUnknownTarget, HtmlDeprecatedAttribute -->
-<br></br>
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://eosrio.io/hyperion-white.png">
-    <img alt="Hyperion Logo"
-         src="https://eosrio.io/hyperion.png">
-  </picture>
-</p>
+# PureHistory · 纯粹的历史
 
+PureHistory provides indexed blocks, transactions, inline actions, account history and state APIs for **PureEOS and legacy EOS**. It is derived from [Hyperion 4.1.0](https://github.com/eosrio/hyperion-history-api), with the original MIT license and attribution retained. Current version: **4.1.0-purehistory.1**.
 
-<h4 align="center">
-    Scalable Full History & State Solution for 
-    <a href="https://antelope.io">
-        Antelope
-    </a>
-    based blockchains <br>
-</h4>
+PureHistory 为 **PureEOS 和旧 EOS** 提供区块、交易、内联操作、账户历史及状态查询。数据来自节点的 State History Plugin（SHIP），经解析后写入 Elasticsearch / MongoDB，并使用 RabbitMQ 和 Redis。链规则、余额、奖励、BP 处罚及最终性仍由节点和系统合约决定。
 
-<br>
+Source / 源码仓库：[MatrixCoreX/PureHistory](https://github.com/MatrixCoreX/PureHistory)
 
-<div align="center">
+Production API / 正式 API：**https://purehistory-api.matrixai.one**
 
-Made with ♥ by [Rio Blocks](https://rioblocks.io/?lang=en)
-</div>
+## Compatibility / 兼容方式
 
-<div align="center">
+| System / 系统 | Tables / 系统表 | Voting response / 投票响应 |
+| --- | --- | --- |
+| PureEOS | `globalv2`, `producersv2`, `votersv2` | `vote_schema=integer-v2`; exact decimal strings in smallest token units; single choice, no proxy or time weighting / 最小单位整数字符串，单选，无代理及时间加权 |
+| Legacy EOS / 旧 EOS | `global`, `producers`, `voters` | `vote_schema=legacy-eosio`; preserve numeric weights, proxy and producer lists / 保留原数值权重、代理及候选列表 |
 
-![CI](https://github.com/eosrio/hyperion-history-api/actions/workflows/build.yml/badge.svg)
-</div>
+The adapter detects the deployed system ABI. Unknown voting schemas fail explicitly instead of returning a misleading empty list. PureEOS integer votes do not pass through legacy floating-point fields. `100.1234 AIC` means `1001234` units at precision 4. Unsafe JavaScript integer inputs are rejected. Legacy values are read as recorded; PureHistory never recomputes time weighting or migrates votes.
 
-<div align="center">
+适配器通过已部署系统 ABI 识别投票表。PureEOS 的 `weight`、`last_vote_amount` 和 `staked` 为字符串；旧 EOS 的 `weight`、`staked` 保留数字类型。旧 EOS 兼容验证使用真实 v1.8.3 ABI、模拟 RPC、真实 Fastify 序列化和队列组件检查；这不等同于完成所有旧 EOS 网络的线上认证。
 
-## 📖 [Hyperion Docs - Official Documentation](https://hyperion.docs.eosrio.io)📖
-</div>
+## Build and run / 编译与运行
 
-### How to use:
+Use Node.js **22+**, npm, and Linux with compatible native `node-abieos` / uWebSockets libraries. The qualified deployment builds and runs in a pinned Node 22 Debian trixie container on Ubuntu **24.04.5 LTS**, avoiding host glibc mismatches. PureHistory itself has not been natively qualified on Ubuntu 26.04; PureEOS node qualification is separate.
 
-- [For Infrastructure Providers](https://hyperion.docs.eosrio.io/providers/get-started/)
+使用 Node.js **22+**。原生依赖需匹配 glibc。当前服务器为 Ubuntu **24.04.5 LTS**，通过固定摘要的 Node 容器构建、运行；不要把 PureEOS 的 Ubuntu 26.04 验证范围直接套用于历史服务。
 
-- [For Developers](https://hyperion.docs.eosrio.io/dev/howtouse/)
+```bash
+npm ci
+npm run build
+npm run test:compat
+```
 
-- [API Reference](https://hyperion.docs.eosrio.io/api/v2/)
+Copy `references/connections.ref.json` to `config/connections.json` and prepare it with authenticated, loopback-bound Elasticsearch, RabbitMQ, Redis, MongoDB and a node RPC/SHIP connection. Copy `references/config.ref.json` to your chain configuration. Keep credentials outside Git and readable only by the service user.
 
-### Official plugins:
+配置带认证且只监听本机的数据库、消息队列和节点 RPC/SHIP。连接配置放在 `config/connections.json`，链配置由 `references/config.ref.json` 复制生成；凭据不得提交 Git。
 
-- [Hyperion Lightweight Explorer](https://github.com/eosrio/hyperion-explorer-plugin)
+```bash
+export CONFIG_JSON=config/chains/aic.config.json
+node --enable-source-maps build/indexer/launcher.js
+# Run in another managed process / 另一个受管理进程中运行
+node --enable-source-maps build/api/server.js
+```
 
-## 1. Overview
+For an existing index, enable `features.tables.voters`, seed voters with the matching adapter, and resume live indexing. The synchronizer reads the configured system contract and actual ABI table, not a hardcoded EOS table.
 
-Hyperion is a high-performance, scalable solution designed to index, store, and retrieve the full history and current state of Antelope-based blockchains (formerly EOSIO). Antelope chains can generate vast amounts of data, demanding robust indexing, optimized storage, and efficient querying capabilities. Hyperion addresses these challenges by providing open-source software tailored for block producers, infrastructure providers, and dApp developers.
+已有索引需开启 `features.tables.voters` 并同步投票表；操作时应暂停对应索引消费者，完成同步后恢复。不要启动两个消费者组去重复读取同一套历史队列。
 
-**Key Features:**
+```bash
+node build/cli/hyp-control.js sync voters aic
+```
 
-*   **Scalable Indexing:** Designed to handle high-throughput Antelope chains.
-*   **Full History:** Captures and stores every action and state change.
-*   **Optimized Data Structure:** Actions are stored flattened, with inline actions linked via transaction IDs, reducing redundancy (e.g., notifications identical to parent actions are omitted). Full blocks/transactions are reconstructed on demand, saving storage space.
-*   **Current State Indexing:** Optionally stores the latest state of specific contracts/tables in MongoDB for fast lookups.
-*   **Modern API (v2):** Offers comprehensive endpoints for history, state, and statistics. Legacy v1 API support is maintained for compatibility.
-*   **Live Streaming:** Provides real-time action and state delta streams via WebSockets.
-*   **Extensible:** Features a plugin system managed by the `hpm` tool.
+## API examples / 接口示例
 
-## 2. Core Concepts
+```text
+/v2/health
+/v2/state/get_system_profile
+/v2/state/get_voters?limit=50&listProducers=true
+/v2/history/get_transaction?id=TRANSACTION_ID
+/v2/history/get_actions?account=ACCOUNT&filter=eosio.token:transfer&sort=asc&after=1&limit=50
+/v2/state/get_tokens?account=ACCOUNT
+/v1/chain/get_info
+```
 
-Hyperion operates by separating the concerns of historical event streams and current on-chain state:
+Ascending action history requires a block/date/sequence bound. A transaction ID query needs no block hint once indexing has caught up. Backfill completeness must be checked against queues and actual transaction IDs; a current header height alone does not prove that action indexing is complete.
 
-1.  **Data Ingestion:** The **Indexer** connects to an Antelope node's State History Plugin (SHIP) WebSocket endpoint.
-2.  **Processing & Queuing:** The Indexer deserializes action traces and state deltas, applies filtering (whitelists/blacklists), enriches data, and pushes processed data onto **RabbitMQ** queues.
-3.  **History Storage:** Indexer worker processes consume data from RabbitMQ and index historical action traces and state deltas into **Elasticsearch**. This forms the backbone for historical queries.
-4.  **State Storage:** If configured, Indexer workers (or dedicated sync tools) process deltas or perform full scans to maintain the *current state* of specified accounts, proposals, voters, or contract tables within **MongoDB**.
-5.  **Data Serving:** The **API Server** handles client requests. It queries:
-  *   **Elasticsearch** for historical data (`/v2/history/*`, `/v1/*`).
-  *   **MongoDB** for current state data (`/v2/state/*`).
-  *   **Redis** for cached responses and transaction lookups.
-  *   The **Antelope Node** directly for real-time chain info or as a fallback.
+升序历史查询须提供区块、时间或序列范围。交易完成索引后可以只用 ID 查询，无需传区块号。不能仅凭区块头高度判断回填完成，必须结合队列和实际交易核对。
 
+The public deployment exposes read-only HTTPS routes with CORS and rate limits. Administration and dependencies remain on loopback. Current account/voter updates reject older deliveries and retain deletion tombstones; database failures requeue the submitted batch. These controls protect delivery ordering and do not replace upstream fork reconciliation.
 
-## 3. Architecture
+当前部署公开只读 HTTPS API，启用 CORS 与限流，管理口和数据库仅监听本机。账户和投票状态防止旧消息覆盖新状态，并保留删除标记；写入失败会重新排队。此机制不替代分叉处理。
 
-A typical Hyperion deployment involves the following components. While they can run on a single machine for smaller chains or development, production environments benefit from distributing them across multiple servers connected via a high-speed network.
-
-### 3.1 Antelope Node (SHIP Enabled)
-The source of blockchain data. A node (e.g., built from the [AntelopeIO/leap](https://github.com/AntelopeIO/leap) repository) running the `state_history_plugin` provides action traces and state deltas via a WebSocket connection to the Hyperion Indexer.
-
-### 3.2 RabbitMQ
-A robust message queuing system. Used as a buffer and transport layer between the different stages of the Hyperion Indexer (Reader -> Deserializer -> Indexer Workers) and for routing real-time data streams to connected API clients.
-
-### 3.3 Redis
-An in-memory data store used for:
-*   **API Response Caching:** Temporarily storing results of frequent API queries.
-*   **Preemptive Transaction Caching:** Storing recent transaction details for fast lookups via `v2/history/get_transaction` and `check_transaction`.
-*   **API Usage Statistics:** Tracking API endpoint usage rates.
-*   **Inter-process Communication:** Facilitating coordination, e.g., for rate limiting across clustered API instances (via `@fastify/rate-limit`).
-*   **Live Streaming Coordination:** Used by the Socket.IO Redis adapter for managing stream subscriptions across clustered API instances.
-
-### 3.4 Elasticsearch Cluster
-
-The primary datastore for **indexed historical data**. It stores processed action traces, state deltas, and block headers.
-*   **Role:** Enables powerful search and aggregation capabilities for historical queries (e.g., `get_actions`, `get_deltas`).
-*   **Requirement:** Essential for all Hyperion history functionalities.
-*   **Recommendation:** Requires significant RAM (32GB+ per node recommended), CPU, and fast storage (SSD/NVMe recommended for ingest nodes, HDDs can be used for cold storage nodes). Multi-node clusters are highly recommended for production.
-
-### 3.5 MongoDB
-
-This MongoDB integration complements Elasticsearch by focusing on **current state data** rather than historical actions, enabling efficient state queries without scanning history.
-*   **Recommendation:** Requires adequate RAM, CPU, and Disk I/O, particularly if indexing large amounts of contract state.
-
-**System Contract State Storage:**
-- Stores searchable state data for Antelope system contracts like token balances, proposals, and voter information
-- Maintains three primary collections by default:
-  - `accounts`: Stores token balances with indexes for code, scope, and symbol
-  - `proposals`: Tracks governance proposals with detailed approval status
-  - `voters`: Manages staking and voting records with optimized query paths
-
-**Custom Contract State Tracking:**
-
-- Supports operator-defined custom contracts and tables
-- Uses a flexible configuration system to define which contract tables to synchronize
-- Automatically creates appropriate indexes based on contract schemas
-- Stores tables in collections named `{contract}-{table}`
-
-
-**State Synchronization:**
-
-- Enables state synchronization even when starting from snapshots, providing a complete view of the blockchain state
-- Managed through the `hyp-control` CLI tool, allowing for targeted synchronization of specific contracts
-- Maintains block references to track state changes over time
-
-
-**Query Optimization:**
-
-- Creates specialized indexes based on common query patterns
-- Supports advanced query capabilities including MongoDB operators like `$gt`, `$lt`, `$in` for filters
-- Automatically handles date fields for time-based queries
-
-
-**API Integration:**
-
-- Provides dedicated API endpoints for querying state data
-- Supports endpoints like `/v2/state/*` API endpoints
-- Offers flexible filtering options with pagination
-
-
-**Dynamic Contract Schema Support:**
-
-- Either automatically creates indexes based on contract ABIs
-- Or allows for manual index configuration for custom query patterns
-- Supports text search indexes for specific fields when configured
-
-
-### 3.6 Hyperion Indexer
-
-A Node.js application responsible for fetching data from SHIP, deserializing it, processing actions and deltas according to configured filters/handlers, and publishing data to RabbitMQ queues for indexing and state updates. Managed by the [PM2](https://pm2.keymetrics.io/) process manager.
-
-### 3.7 Hyperion API Server
-A Node.js (Fastify framework) application that serves the HTTP API endpoints (v1 and v2). It queries Elasticsearch, MongoDB, Redis, and the Antelope node as needed. It also manages the Swagger documentation UI and handles WebSocket connections for live streaming. Typically run in cluster mode using PM2 for scalability and resilience.
-
-### 3.8 Hyperion Stream Client (Optional)
-A client library (for Web and Node.js) simplifying connection to the real-time streaming endpoints offered by enabled Hyperion providers. See [Stream Client Documentation](https://hyperion.docs.eosrio.io/dev/stream_client/).
-
-### 3.9 Hyperion Plugins (Optional)
-Hyperion features an extensible plugin architecture. Plugins can add custom data handlers, API routes, or other functionalities. Managed via the `hpm` command-line tool.
-*   **Example:** [DelphiOracle Plugin](https://github.com/eosrio/hyperion-delphioracle-plugin)
-
-## 4. Getting Started
-
-For detailed setup instructions, API usage, and technical deep-dives, please visit the **[Official Hyperion Documentation](https://hyperion.docs.eosrio.io)**.
-
-## 5. API Usage
-
-*   Hyperion exposes a comprehensive **v2 API** for querying history and state.
-*   A **v1 API** (compatible with the legacy `history_plugin`) is also provided.
-*   Interactive API documentation is available via **Swagger UI** at the `/docs` endpoint of your running API server (e.g., `http://your-hyperion-ip:7000/docs`).
-*   Refer to the [API Reference Documentation](https://hyperion.docs.eosrio.io/api/v2/) for details and examples.
-
-## 6. Contributing
-
-We appreciate community contributions to Hyperion! Here’s how you can help:
-
-*   **Report Bugs:** Find a problem? Please open an [Issue](https://github.com/eosrio/hyperion-history-api/issues) detailing the steps to reproduce it.
-*   **Suggest Enhancements:** Have an idea? Open an Issue or discuss it on our [Hyperion Telegram group](https://t.me/EOSHyperion) first.
-*   **Submit Code:** Pull Requests (PRs) are welcome for bug fixes and improvements. For larger features, please discuss them in an issue or on the [Telegram group](https://t.me/EOSHyperion) beforehand.
-
-### Branching model
-
-*   **`main`** — the stable branch. It only ever advances to **tagged releases**, so its `HEAD` always matches the latest published version. This is the branch to clone for production (as referenced in the [install guide](https://hyperion.docs.eosrio.io/providers/install/manual_install/#hyperion)).
-*   **`dev`** — the active development branch. All day-to-day work lands here.
-*   **PRs** should target **`dev`**. Releases are cut by merging `dev` into `main` and tagging.
-
-(The legacy `develop` branch is abandoned 2020-era history kept only for archival reasons — do not use it.)
-
-## 7. License
-
-Hyperion History API is licensed under the [Attribution-NonCommercial-ShareAlike 4.0 International](https://github.com/eosrio/hyperion-history-api/blob/main/license.md).
+See [operations](docs/OPERATIONS.md) and [qualification](docs/QUALIFICATION_20261031.md) for exact deployment paths, evidence, compatibility scope and remaining review items.

@@ -308,6 +308,7 @@ async function getHealthQuery(fastify: FastifyInstance) {
     const autoPrune = !!(maxRetainedBlocks && maxRetainedBlocks > 0);
 
     let response: {
+        product: string,
         version?: string,
         version_hash?: string,
         host: string,
@@ -321,6 +322,7 @@ async function getHealthQuery(fastify: FastifyInstance) {
             next_prune_eta_sec?: number
         }
     } = {
+        product: 'PureHistory',
         version: fastify.manager.current_version,
         version_hash: fastify.manager.getServerHash(),
         host: fastify.manager.config.api.server_name,

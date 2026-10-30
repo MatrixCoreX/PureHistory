@@ -37,14 +37,22 @@ export default class IndexerWorker extends HyperionWorker {
 
                 if (this.mongoRoutes.routes[process.env.type]) {
                     // call route type
-                    (this.mongoRoutes.routes[process.env.type] as any)(payload, (indexed_size?: number) => {
+                    (this.mongoRoutes.routes[process.env.type] as any)(payload, (indexed_size?: number, error?: unknown) => {
                         if (indexed_size) {
                             this.temp_indexed_count += indexed_size;
                         }
                         // console.log('MongoDB indexed: ', indexed_size, ' on ', process.env.type);
                         try {
-                            this.ch?.ackAll();
-                            callback();
+                            if (error) {
+                                hLog('MongoDB batch failed; requeueing delivered batch', error);
+                                setTimeout(() => {
+                                    try { for (const message of payload) this.ch?.nack(message, false, true); }
+                                    finally { callback(); }
+                                }, 250);
+                            } else {
+                                for (const message of payload) this.ch?.ack(message);
+                                callback();
+                            }
                         } catch (e: any) {
                             hLog(`${e.message} on ${process.env.type}`);
                         }

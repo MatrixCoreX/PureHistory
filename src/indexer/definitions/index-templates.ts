@@ -226,6 +226,10 @@ export const delta = {
 
             // eosio::voters
             "@voters.is_proxy": {"type": "boolean"},
+            "@voters.owner": {"type": "keyword"},
+            "@voters.vote_schema": {"type": "keyword"},
+            "@voters.last_vote_amount": {"type": "keyword"},
+            "@voters.staked_units": {"type": "long"},
             "@voters.producers": {"type": "keyword"},
             "@voters.last_vote_weight": {"type": "double"},
             "@voters.proxied_vote_weight": {"type": "double"},
@@ -517,6 +521,9 @@ export const tableVoters = {
             "voter": {"type": "keyword"},
             "producers": {"type": "keyword"},
             "last_vote_weight": {"type": "double"},
+            "vote_schema": {"type": "keyword"},
+            "last_vote_amount": {"type": "keyword"},
+            "staked_units": {"type": "long"},
             "is_proxy": {"type": "boolean"},
             "proxied_vote_weight": {"type": "double"},
             "staked": {"type": "double"},

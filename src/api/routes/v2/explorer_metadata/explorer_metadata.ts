@@ -3,6 +3,9 @@ import { timedQuery } from "../../../helpers/functions.js";
 
 async function getExplorerMetadata(fastify: FastifyInstance) {
     return {
+        product: 'PureHistory',
+        version: fastify.manager.current_version,
+        upstream: 'Hyperion 4.1.0',
         provider: fastify.manager.config.api.provider_name,
         provider_url: fastify.manager.config.api.provider_url,
         chain_name: fastify.manager.config.api.chain_name,

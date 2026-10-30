@@ -34,7 +34,7 @@ async function getTokens(fastify: FastifyInstance, request: FastifyRequest) {
     const dbName = `${fastify.manager.conn.mongodb.database_prefix}_${fastify.manager.chain}`;
     const collection = fastify.mongo.client.db(dbName).collection<IAccount>('accounts');
     stateResult = await collection
-        .find({ scope: query.account }, { projection: { _id: 0, code: 1, symbol: 1, amount: 1 } })
+        .find({ scope: query.account, present: {$ne: 0} }, { projection: { _id: 0, code: 1, symbol: 1, amount: 1 } })
         .skip(skip || 0)
         .limit(limit || 50)
         .toArray();

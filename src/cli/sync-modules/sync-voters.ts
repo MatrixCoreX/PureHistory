@@ -1,111 +1,75 @@
-import { Name, UInt64 } from "@wharfkit/antelope";
-import { cargo } from "async";
-import { IVoter } from "../../interfaces/table-voter.js";
-import { Synchronizer } from "./synchronizer.js";
+import {Name} from '@wharfkit/antelope';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {IVoter} from '../../interfaces/table-voter.js';
+import {Synchronizer} from './synchronizer.js';
+import {normalizeVoter, resolveSystemProfile, SystemProfile} from '../../indexer/helpers/system-profile.js';
+import {stateUpdate} from '../../indexer/helpers/mongo-state.js';
 
 export class VoterSynchronizer extends Synchronizer<IVoter> {
+    constructor(chain: string) {super(chain, 'voters');}
 
-    constructor(chain: string) {
-        super(chain, 'voters');
+    private async rpc(method: string, body: any) {
+        const response = await fetch(`${this.connections.chains[this.chain].http}/v1/chain/${method}`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body), signal: AbortSignal.timeout(30000)
+        });
+        if (!response.ok) throw new Error(`Voter synchronization RPC ${method}: ${response.status}`);
+        return response.json();
     }
 
-    private async* scan() {
-        let lb: UInt64 | undefined = undefined;
-        let more = false;
+    private async* scan(profile: SystemProfile) {
+        let lowerBound: string | undefined;
         do {
-            const result = await this.client.v1.chain.get_table_rows({
-                code: "eosio",
-                table: "voters",
-                scope: "eosio",
-                limit: 300,
-                lower_bound: lb ? lb : undefined
+            const result = await this.rpc('get_table_rows', {
+                code: profile.system_contract, scope: profile.system_contract,
+                table: profile.tables.voters, json: true, limit: 300, lower_bound: lowerBound
             });
-
-            for (const voter of result.rows) {
-                const data = {
-                    block_num: this.currentBlock,
-                    is_proxy: voter.is_proxy === 1,
-                    last_vote_weight: voter.last_vote_weight,
-                    primary_key: Name.from(voter.owner).value.toString(),
-                    producers: voter.producers,
-                    proxied_vote_weight: voter.proxied_vote_weight,
-                    proxy: voter.proxy,
-                    staked: voter.staked,
-                    voter: voter.owner
-                };
+            for (const row of result.rows) {
+                const voter = normalizeVoter(row, profile.vote_schema);
+                const {owner, ...fields} = voter;
                 this.totalItems++;
-                yield data;
+                yield {voter: owner, ...fields, present: 1, block_num: this.currentBlock,
+                    staked: voter.staked_units ?? voter.staked,
+                    primary_key: Name.from(owner).value.toString()} as IVoter;
             }
-            lb = result.next_key;
-            more = result.more;
-        } while (more);
+            if (!result.more) break;
+            const next = String(result.next_key);
+            if (!next || next === 'undefined' || next === lowerBound) throw new Error('Voter pagination did not advance');
+            lowerBound = next;
+        } while (true);
     }
 
     public async run() {
-        const info = await this.client.v1.chain.get_info();
-        this.currentBlock = info.head_block_num.toNumber();
-
+        const configPath = process.env.CONFIG_JSON || join(import.meta.dirname, '../../../config/chains', `${this.chain}.config.json`);
+        const config = JSON.parse(readFileSync(configPath, 'utf8'));
+        const profile = await resolveSystemProfile(this.rpc.bind(this), config.settings.system_contract ?? config.settings.eosio_alias ?? 'eosio');
+        this.currentBlock = (await this.rpc('get_info', {})).head_block_num;
         await this.setupMongo('voters', [
-            { fields: { voter: 1 }, options: { unique: true } },
-            { fields: { producers: 1 } },
-            { fields: { is_proxy: 1 } }
+            {fields: {voter: 1}, options: {unique: true}},
+            {fields: {producers: 1}}, {fields: {is_proxy: 1}}
         ]);
-
         try {
             if (this.collection) {
-                const cargoQueue = cargo((docs: any[], cb) => {
-                    this.collection!.bulkWrite(docs.map(doc => {
-                        return {
-                            updateOne: {
-                                filter: {
-                                    voter: doc.voter
-                                },
-                                update: {
-                                    $set: {
-                                        block_num: doc.block_num,
-                                        is_proxy: doc.is_proxy,
-                                        last_vote_weight: doc.last_vote_weight,
-                                        producers: doc.producers,
-                                        proxied_vote_weight: doc.proxied_vote_weight,
-                                        proxy: doc.proxy,
-                                        staked: doc.staked
-                                    }
-                                },
-                                upsert: true
-                            }
-                        };
-                    })).finally(() => {
-                        cb();
-                    });
-                }, 1000);
-
-                const voterCounterLogger = setInterval(() => {
-                    console.log(`Processed ${this.totalItems} voters so far...`);
-                }, 5000);
-
-                for await (const doc of this.scan()) {
-                    cargoQueue.push(doc).catch(console.log);
+                let batch: any[] = [];
+                for await (const doc of this.scan(profile)) {
+                    batch.push(stateUpdate({voter: doc.voter}, doc));
+                    if (batch.length >= 300) {
+                        await this.collection.bulkWrite(batch, {ordered: false});
+                        batch = [];
+                    }
                 }
-
-                await cargoQueue.drain();
-
-                clearInterval(voterCounterLogger);
-
-                console.log(`Processed ${this.totalItems} voters.`);
-                await this.mongoClient?.close();
+                if (batch.length) await this.collection.bulkWrite(batch, {ordered: false});
             } else {
-                const bulkResponse = await this.elastic.helpers.bulk({
-                    flushBytes: 1000000,
-                    datasource: this.scan(),
-                    onDocument: (doc) => [{ index: { _id: doc.voter, _index: this.indexName } }, doc],
-                    onDrop: (doc) => console.log('doc', doc)
+                const result = await this.elastic.helpers.bulk({
+                    datasource: this.scan(profile),
+                    onDocument: doc => [{index: {_id: doc.voter, _index: this.indexName}}, doc]
                 });
-                console.log(`bulkResponse`, bulkResponse);
-                console.log(`${bulkResponse.successful} accounts`);
+                if (result.failed) throw new Error(`Failed to index ${result.failed} voters`);
             }
-        } catch (e) {
-            console.log(e);
-            process.exit();
+            console.log(`PureHistory synchronized ${this.totalItems} ${profile.vote_schema} voters.`);
+        } finally {
+            await this.mongoClient?.close();
         }
     }
 }

@@ -404,7 +404,7 @@ export class LocalHyperionController {
         this.setWebSocketHandlers();
 
         // Start listening on the specified control port
-        this.localController.listen(controlPort, (token) => {
+        this.localController.listen('127.0.0.1', controlPort, (token) => {
             if (token) {
                 hLog(`Local controller listening on port ${controlPort}`);
             }

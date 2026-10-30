@@ -15,6 +15,13 @@ export default function (fastify: FastifyInstance, opts: any, next) {
             }
         }),
         response: extendResponseSchema({
+            vote_schema: {type: 'string'},
+            system_table: {type: 'string'},
+            vote_precision: {type: 'integer'},
+            core_symbol: {type: 'string'},
+            proxy_voting: {type: 'boolean'},
+            time_weighted: {type: 'boolean'},
+            single_choice: {type: 'boolean'},
             voter_count: {
                 type: 'integer'
             },
@@ -29,8 +36,10 @@ export default function (fastify: FastifyInstance, opts: any, next) {
                     properties: {
                         account: { type: 'string' },
                         is_proxy: { type: 'boolean' },
-                        weight: { type: 'number' },
-                        staked: { type: 'number' },
+                        weight: { anyOf: [{type: 'string', pattern: '^-?[0-9]+$'}, {type: 'number'}] },
+                        staked: { anyOf: [{type: 'string', pattern: '^-?[0-9]+$'}, {type: 'number'}] },
+                        last_vote_amount: {type: 'string'},
+                        vote_schema: {type: 'string'},
                         last_vote_block: { type: 'number' },
                         producers: {
                             type: 'array',

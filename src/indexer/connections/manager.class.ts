@@ -10,6 +10,7 @@ import {join} from "node:path";
 import {existsSync, readFileSync} from "fs";
 import {MongoClient} from "mongodb";
 import {APIClient} from "@wharfkit/antelope";
+import {resolveSystemProfile, SystemProfile} from '../helpers/system-profile.js';
 
 export class ConnectionManager {
 
@@ -27,6 +28,28 @@ export class ConnectionManager {
     esIngestClient!: Client;
 
     mongodbClient?: MongoClient;
+    private systemProfilePromise?: Promise<SystemProfile>;
+
+    private systemProfileExpires = 0;
+
+    getSystemProfile(): Promise<SystemProfile> {
+        if (!this.systemProfilePromise || Date.now() >= this.systemProfileExpires) {
+            this.systemProfileExpires = Date.now() + 60000;
+            const systemContract = this.config.settings.system_contract ?? this.config.settings.eosio_alias ?? 'eosio';
+            this.systemProfilePromise = resolveSystemProfile(async (method, body) => {
+                const response = await fetch(`${this.conn.chains[this.chain].http}/v1/chain/${method}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body), signal: AbortSignal.timeout(10000)
+                });
+                if (!response.ok) throw new Error(`System profile RPC ${method} returned ${response.status}`);
+                return response.json();
+            }, systemContract).catch(error => {
+                this.systemProfilePromise = undefined;
+                throw error;
+            });
+        }
+        return this.systemProfilePromise;
+    }
 
     constructor(cm: ConfigurationModule) {
 

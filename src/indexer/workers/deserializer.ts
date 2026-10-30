@@ -18,6 +18,7 @@ import { TokenAccount } from "../../interfaces/custom-ds.js";
 import { GetBlocksResultV0 } from "./state-reader.js";
 import { de } from "zod/v4/locales";
 import { log } from "console";
+import { normalizeVoter } from '../helpers/system-profile.js';
 
 interface QueuePayload {
     queue: string;
@@ -1797,11 +1798,15 @@ export default class MainDSWorker extends HyperionWorker {
     async storeVoter(data) {
         if (data['@voters']) {
             const voterDoc: any = {
-                "voter": data['payer'],
+                "voter": data['@voters']['owner'],
+                "vote_schema": data['@voters']['vote_schema'],
+                "last_vote_amount": data['@voters']['last_vote_amount'],
+                "staked_units": data['@voters']['staked_units'],
+                "present": data['present'],
                 "last_vote_weight": data['@voters']['last_vote_weight'],
                 "is_proxy": data['@voters']['is_proxy'],
                 "proxied_vote_weight": data['@voters']['proxied_vote_weight'],
-                "staked": data['@voters']['staked'],
+                "staked": data['@voters']['staked_units'] ?? data['@voters']['staked'],
                 "primary_key": data['primary_key'],
                 "block_num": data['block_num']
             };
@@ -1858,8 +1863,10 @@ export default class MainDSWorker extends HyperionWorker {
 
         const systemContract = this.conf.settings.system_contract ?? (this.conf.settings.eosio_alias ?? 'eosio');
 
-        this.tableHandlers[systemContract + ':voters'] = (delta: HyperionDelta) => {
+        this.tableHandlers[systemContract + ':voters'] = async (delta: HyperionDelta) => {
             delta['@voters'] = {};
+            delta['@voters']['owner'] = delta.data['owner'];
+            delta['@voters']['vote_schema'] = 'legacy-eosio';
             delta['@voters']['is_proxy'] = delta.data['is_proxy'];
             delete delta.data['is_proxy'];
             delete delta.data['owner'];
@@ -1878,8 +1885,15 @@ export default class MainDSWorker extends HyperionWorker {
             delta['@voters']['staked'] = parseFloat(delta.data['staked']);
             delete delta.data['staked'];
             if (this.conf.features.tables.voters) {
-                this.storeVoter(delta);
+                await this.storeVoter(delta);
             }
+        };
+
+        this.tableHandlers[systemContract + ':votersv2'] = async (delta: HyperionDelta) => {
+            // PureEOS integer votes must never pass through the legacy float fields.
+            delta['@voters'] = normalizeVoter(delta.data, 'integer-v2');
+            delete delta['data'];
+            if (this.conf.features.tables.voters) await this.storeVoter(delta);
         };
 
         this.tableHandlers[systemContract + ':global'] = (delta: HyperionDelta) => {

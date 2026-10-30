@@ -7,6 +7,7 @@ import { IProposal } from "../../interfaces/table-proposal.js";
 import { IVoter } from "../../interfaces/table-voter.js";
 import { IPermission } from "../../interfaces/table-permissions.js";
 import { last } from "lodash";
+import { stateUpdate } from './mongo-state.js';
 
 export class MongoRoutes {
 
@@ -34,7 +35,7 @@ export class MongoRoutes {
 
     addRoutes() {
 
-        this.routes['state'] = (payload: Message[], callback: (indexed_size?: number) => void) => {
+        this.routes['state'] = (payload: Message[], callback: (indexed_size?: number, error?: unknown) => void) => {
 
             const promises: Promise<any>[] = [];
             let totalIndexed = 0;
@@ -46,7 +47,7 @@ export class MongoRoutes {
             });
 
             if (permissionMessages.length > 0) {
-                const operations = payload.map((msg: Message) => {
+                const operations = permissionMessages.map((msg: Message) => {
                     const data = JSON.parse(msg.content.toString()) as IPermission & { present: number };
                     if (data.present !== 0) {
                         return {
@@ -84,6 +85,7 @@ export class MongoRoutes {
                     })
                     .catch(reason => {
                         hLog('error', 'mongo-routes', 'state/permission', reason);
+                        throw reason;
                     });
 
                 if (p) promises.push(p);
@@ -146,122 +148,53 @@ export class MongoRoutes {
                     })
                     .catch(reason => {
                         hLog('error', 'mongo-routes', 'state/permission_link', reason);
+                        throw reason;
                     });
 
                 if (p) promises.push(p);
             }
 
             if (promises.length > 0) {
-                Promise.all(promises).finally(() => {
+                Promise.all(promises).then(() => {
                     callback(totalIndexed);
-                });
+                }, error => callback(0, error));
             } else {
                 hLog('Unexpected state message without permissions or permission_links');
                 callback(0);
             }
         };
 
-        this.routes['table-accounts'] = (payload: Message[], callback: (indexed_size?: number) => void) => {
-            // index
-            const operations = payload.map((msg: Message) => {
-                const data = JSON.parse(msg.content.toString()) as IAccount & { present: number };
-                if (data.present !== 0) {
-                    return {
-                        updateOne: {
-                            filter: {
-                                code: data.code,
-                                scope: data.scope,
-                                symbol: data.symbol
-                            },
-                            update: {
-                                $set: {
-                                    block_num: data.block_num,
-                                    amount: data.amount
-                                }
-                            },
-                            upsert: true
-                        }
-                    };
-                } else {
-                    return {
-                        deleteOne: {
-                            filter: {
-                                code: data.code,
-                                scope: data.scope,
-                                symbol: data.symbol
-                            }
-                        }
-                    };
-                }
+        this.routes['table-accounts'] = (payload: Message[], callback: (size?: number, error?: unknown) => void) => {
+            const operations = payload.map(msg => {
+                const data = JSON.parse(msg.content.toString());
+                return stateUpdate({code: data.code, scope: data.scope, symbol: data.symbol}, data);
             });
-
-            this.accountsCollection?.bulkWrite(operations, { ordered: false }).catch(reason => {
-                hLog('error', 'mongo-routes', 'table-accounts', reason);
-            }).finally(() => {
-                // TODO: ack
-                // channel.ackAll();
-                callback(payload.length);
-            });
+            this.accountsCollection!.bulkWrite(operations, {ordered: false})
+                .then(() => callback(payload.length), error => callback(0, error));
         };
 
-        this.routes['table-proposals'] = (payload: Message[], callback: (indexed_size?: number) => void) => {
-            const operations = payload.map((msg: Message) => {
-                const data = JSON.parse(msg.content.toString()) as IProposal;
-                return {
-                    updateOne: {
-                        filter: {
-                            proposal_name: data.proposal_name,
-                            proposer: data.proposer
-                        },
-                        update: {
-                            $set: data
-                        },
-                        upsert: true
-                    }
-                };
+        this.routes['table-proposals'] = (payload: Message[], callback: (size?: number, error?: unknown) => void) => {
+            const operations = payload.map(msg => {
+                const data = JSON.parse(msg.content.toString());
+                return {updateOne: {filter: {proposal_name: data.proposal_name, proposer: data.proposer},
+                    update: {$set: data}, upsert: true}};
             });
-
-            this.proposalsCollection?.bulkWrite(operations, { ordered: false }).catch(reason => {
-                hLog('error', 'mongo-routes', 'table-proposals', reason);
-            }).finally(() => {
-                callback(payload.length);
-            });
+            this.proposalsCollection!.bulkWrite(operations, {ordered: false})
+                .then(() => callback(payload.length), error => callback(0, error));
         };
 
-        this.routes['table-voters'] = (payload: Message[], callback: (indexed_size?: number) => void) => {
-            const operations = payload.map((msg: Message) => {
-                const data = JSON.parse(msg.content.toString()) as IVoter;
-                return {
-                    updateOne: {
-                        filter: {
-                            voter: data.voter
-                        },
-                        update: {
-                            $set: {
-                                block_num: data.block_num,
-                                is_proxy: data.is_proxy,
-                                last_vote_weight: data.last_vote_weight,
-                                producers: data.producers,
-                                proxied_vote_weight: data.proxied_vote_weight,
-                                primary_key: data.primary_key,
-                                staked: data.staked,
-                            }
-                        },
-                        upsert: true
-                    }
-                };
+        this.routes['table-voters'] = (payload: Message[], callback: (size?: number, error?: unknown) => void) => {
+            const operations = payload.map(msg => {
+                const data = JSON.parse(msg.content.toString());
+                return stateUpdate({voter: data.voter}, data);
             });
-
-            this.votersCollection?.bulkWrite(operations, { ordered: false }).catch(reason => {
-                hLog('error', 'mongo-routes', 'table-voters', reason);
-            }).finally(() => {
-                callback(payload.length);
-            });
+            this.votersCollection!.bulkWrite(operations, {ordered: false})
+                .then(() => callback(payload.length), error => callback(0, error));
         };
     }
 
     private addDynamicRoutes() {
-        this.routes['dynamic-table'] = (payload: Message[], callback: (indexed_size?: number) => void) => {
+        this.routes['dynamic-table'] = (payload: Message[], callback: (indexed_size?: number, error?: unknown) => void) => {
             const groupedOps = new Map<string, any[]>();
             payload.forEach((msg: Message) => {
                 const delta = JSON.parse(msg.content.toString()) as any;
@@ -315,9 +248,9 @@ export class MongoRoutes {
                 }
             });
 
-            Promise.all(promises).finally(() => {
+            Promise.all(promises).then(() => {
                 callback(payload.length);
-            });
+            }, error => callback(0, error));
         }
 
     }

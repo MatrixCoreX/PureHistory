@@ -54,7 +54,7 @@ class HyperionApiServer {
 
   constructor() {
     const package_json = JSON.parse(readFileSync('./package.json').toString());
-    hLog(`--------- Hyperion API ${package_json.version} ---------`);
+    hLog(`--------- PureHistory API ${package_json.version} ---------`);
 
     const cm = new ConfigurationModule();
     this.conf = cm.config;
@@ -418,11 +418,11 @@ class HyperionApiServer {
       const listeningAddress = this.fastify.server.address() as AddressInfo;
       if (listeningAddress.address === '0.0.0.0') {
         hLog(
-          `Hyperion API for "${this.chain}" ready and listening on port ${listeningAddress.port} (all interfaces)`,
+          `PureHistory API for "${this.chain}" ready and listening on port ${listeningAddress.port} (all interfaces)`,
         );
       } else {
         hLog(
-          `Hyperion API for "${this.chain}" ready and listening on port http://${listeningAddress.address}:${listeningAddress.port}`,
+          `PureHistory API for "${this.chain}" ready and listening on port http://${listeningAddress.address}:${listeningAddress.port}`,
         );
       }
       hLog(`API Public Url: ${this.conf.api.server_name}`);
@@ -643,6 +643,7 @@ class HyperionApiServer {
           reply.redirect('/explorer');
         } else {
           reply.send({
+            product: 'PureHistory',
             version: this.manager.current_version,
             version_hash: this.manager.getServerHash(),
             chain: this.chain,
@@ -745,7 +746,7 @@ class HyperionApiServer {
     this.indexerController = new WebSocket(indexerControlURL);
 
     this.indexerController.on('open', async () => {
-      hLog('Connected to Hyperion Controller');
+      hLog('Connected to PureHistory Controller');
       this.qryPublisher?.publishIndexerStatus('active');
     });
 
@@ -754,7 +755,7 @@ class HyperionApiServer {
     });
 
     this.indexerController.on('close', () => {
-      hLog('Disconnected from Hyperion Controller');
+      hLog('Disconnected from PureHistory Controller');
       this.qryPublisher?.publishIndexerStatus('offline');
       this.alerts?.emit('IndexerError', { message: 'Indexer disconnected' });
       setTimeout(() => {

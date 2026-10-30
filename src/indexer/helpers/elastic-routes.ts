@@ -9,6 +9,14 @@ type MaxBlockCb = (maxBlock: number) => void;
 type PartitionRoutingFunction = (blockNum: number) => string;
 type MMap = Map<string, any>;
 
+function appendMessage(map: MMap, id: any, message: Message) {
+    const key = String(id);
+    const messages = map.get(key) ?? [];
+    messages.push(message);
+    map.set(key, messages);
+}
+
+
 export type BulkGeneratorFunction = (
     payloads: Message[],
     messageMap: MMap,
@@ -43,7 +51,7 @@ function flatMap(payloads: Message[], builder: (payload: Message, body: any) => 
 function buildAbiBulk(payloads: Message[], messageMap: MMap) {
     return flatMap(payloads, (payload, body) => {
         const id = body['block'] + body['account'];
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [
             {index: {_id: id}},
             body
@@ -58,7 +66,7 @@ function buildActionBulk(payloads: Message[],
                          indexName: string) {
     return flatMap(payloads, (payload, body) => {
         const id = body['global_sequence'];
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [{
             index: {
                 _id: id,
@@ -71,7 +79,7 @@ function buildActionBulk(payloads: Message[],
 function buildBlockBulk(payloads: Message[], messageMap: MMap) {
     return flatMap(payloads, (payload: any, body: any) => {
         const id = body['block_num'];
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [{
             index: {_id: id}
         }, body];
@@ -92,7 +100,7 @@ function buildDeltaBulk(payloads: Message[],
             maxBlock = body.block_num;
         }
         const id = `${body.block_num}-${body.code}-${body.scope}-${body.table}-${body.primary_key}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [
             {
                 index: {
@@ -116,7 +124,7 @@ function buildDynamicTableBulk(payloads: any[],
                                retry_on_conflict: number
 ) {
     return flatMap(payloads, (payload, body) => {
-        messageMap.set(body.id, _.omit(payload, ['content']));
+        appendMessage(messageMap, body.id, payload);
         if (body.present === 0) {
             return makeDelOp(body.id);
         } else {
@@ -134,7 +142,7 @@ function buildTableProposalsBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.proposer}-${body.proposal_name}-${body.primary_key}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -148,7 +156,7 @@ function buildTableAccountsBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.code}-${body.scope}-${body.symbol}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -162,7 +170,7 @@ function buildTableVotersBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.voter}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -176,7 +184,7 @@ function buildLinkBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.account}-${body.permission}-${body.code}-${body.action}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -190,7 +198,7 @@ function buildPermBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.owner}-${body.name}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -204,7 +212,7 @@ function buildResLimitBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.owner}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -218,7 +226,7 @@ function buildResUsageBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload: Message, body) => {
         const id = `${body.owner}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -232,7 +240,7 @@ function buildScheduleBulk(payloads: Message[],
 ) {
     return flatMap(payloads, (payload, body) => {
         const id = `${body.version}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return makeScriptedOp(id, body, retry_on_conflict);
     });
 }
@@ -244,7 +252,7 @@ function buildGenTrxBulk(payloads: Message[], messageMap: MMap) {
             .digest()
             .toString("hex");
         const id = `${body.block_num}-${hash}`;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [{index: {_id: id}}, body];
     });
 }
@@ -253,7 +261,7 @@ function buildTrxErrBulk(payloads: Message[], messageMap: MMap) {
     return flatMap(payloads, (payload, body) => {
         const id = body.trx_id.toLowerCase();
         delete body.trx_id;
-        messageMap.set(id, _.omit(payload, ['content']));
+        appendMessage(messageMap, id, payload);
         return [{index: {_id: id}}, body];
     });
 }
@@ -326,13 +334,13 @@ export class ElasticRoutes {
                         if (maxBlockNum > 0) {
                             ElasticRoutes.reportMaxBlock(maxBlockNum, index_name);
                         }
-                        channel.ackAll();
+                        for (const message of collection) channel.ack(message);
                     }
                     resolve(messageMap.size);
                 }).catch((err) => {
                     try {
-                        channel.nackAll();
-                        hLog('NackAll', err);
+                        for (const message of collection) channel.nack(message, false, true);
+                        hLog('Requeue failed batch', err);
                     } finally {
                         resolve(0);
                     }
@@ -390,7 +398,7 @@ export class ElasticRoutes {
                 console.log(item);
                 throw new Error('FATAL ERROR - CANNOT EXTRACT ID');
             }
-            const message = messageMap.get(id);
+            const message = messageMap.get(String(id))?.shift();
             const status = itemBody.status;
             if (message) {
                 switch (status) {
@@ -431,14 +439,14 @@ export class ElasticRoutes {
                 ElasticRoutes.reportMaxBlock(maxBlockNum, index_name);
             }
         } else {
-            channel.ackAll();
+            for (const message of payloads) channel.ack(message);
         }
         callback(messageMap.size);
     }
 
-    onError(err: any, channel: Channel, callback: (size?: number) => void) {
+    onError(err: any, channel: Channel, callback: (size?: number) => void, payloads: Message[]) {
         try {
-            channel.nackAll();
+            for (const message of payloads) channel.nack(message, false, true);
             if (err.meta) {
                 hLog('NackAll:', JSON.stringify(err.meta.meta, null, 2));
             } else {
@@ -503,7 +511,7 @@ export class ElasticRoutes {
                 bulkResult.then(resp => {
                     this.onResponse(resp, messageMap, cb, payloads, channel, _index, maxBlockNum);
                 }).catch(err => {
-                    this.onError(err, channel, cb);
+                    this.onError(err, channel, cb, payloads);
                 });
             }
         };

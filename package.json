@@ -1,7 +1,7 @@
 {
-  "name": "hyperion-history",
-  "version": "4.1.0",
-  "description": "Scalable Full History API Solution for Antelope based blockchains",
+  "name": "purehistory",
+  "version": "4.1.0-purehistory.1",
+  "description": "PureHistory: PureEOS integer voting and legacy EOS compatible history API, derived from Hyperion",
   "main": "./build/indexer/launcher.js",
   "scripts": {
     "tsc": "tsc",
@@ -9,7 +9,8 @@
     "build:watch": "tsc --watch",
     "postinstall": "npm run build && npm run fix-permissions",
     "fix-permissions": "node scripts/fix-permissions.cjs",
-    "test": "bun test tests/unit"
+    "test": "bun test tests/unit",
+    "test:compat": "node --test tests/compat/*.test.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -21,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/eosrio/hyperion-history-api.git"
+    "url": "https://github.com/MatrixCoreX/PureHistory.git"
   },
   "license": "MIT",
   "dependencies": {
@@ -35,7 +36,7 @@
     "@fastify/mongodb": "10.0.0",
     "@fastify/rate-limit": "10.3.0",
     "@fastify/redis": "7.2.0",
-    "@fastify/static": "9.1.3",
+    "@fastify/static": "10.1.8",
     "@fastify/swagger": "9.7.0",
     "@fastify/swagger-ui": "5.2.6",
     "@socket.io/redis-adapter": "8.3.0",
@@ -45,21 +46,21 @@
     "cli-progress": "3.12.0",
     "commander": "14.0.3",
     "dotenv": "17.4.2",
-    "fastify": "5.8.5",
+    "fastify": "5.12.7",
     "fastify-plugin": "5.1.0",
     "flatstr": "1.0.12",
     "global-agent": "4.1.3",
     "ioredis": "5.11.0",
     "lodash": "4.18.1",
     "mongodb": "7.2.0",
-    "nodemailer": "8.0.10",
+    "nodemailer": "10.3.1",
     "socket.io": "4.8.3",
     "socket.io-client": "4.8.3",
     "typescript": "6.0.3",
-    "undici": "8.3.0",
+    "undici": "8.12.3",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.67.0",
-    "ws": "8.20.1",
-    "zod": "4.4.3"
+    "ws": "8.22.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -80,6 +81,14 @@
     "@eosrio/node-abieos"
   ],
   "overrides": {
-    "ws": "8.20.1"
-  }
+    "ws": "$ws",
+    "@fastify/static": "$@fastify/static"
+  },
+  "upstream": {
+    "name": "Hyperion",
+    "version": "4.1.0",
+    "commit": "a11de79438a26434ea9024a89d877efa8272e22d",
+    "repository": "https://github.com/eosrio/hyperion-history-api"
+  },
+  "homepage": "https://github.com/MatrixCoreX/PureHistory#readme"
 }

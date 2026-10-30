@@ -25,7 +25,7 @@ async function getTopHolders(fastify: FastifyInstance, request: FastifyRequest) 
     const dbName = `${fastify.manager.conn.mongodb.database_prefix}_${fastify.manager.chain}`;
     const collection = fastify.mongo.client.db(dbName).collection('accounts');
 
-    const mongoQuery: any = {};
+    const mongoQuery: any = {present: {$ne: 0}};
     if (query.contract) {
         mongoQuery.code = query.contract;
     }

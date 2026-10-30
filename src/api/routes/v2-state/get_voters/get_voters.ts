@@ -2,11 +2,14 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { timedQuery } from '../../../helpers/functions.js';
 import { getSkipLimit } from '../../v2-history/get_actions/functions.js';
 import { IVoter } from '../../../../interfaces/table-voter.js';
+import {publicVoter} from '../../../../indexer/helpers/system-profile.js';
 
 async function getVoters(fastify: FastifyInstance, request: FastifyRequest) {
     const query: any = request.query;
-    const { skip, limit } = getSkipLimit(request.query);
+    let { skip, limit } = getSkipLimit(request.query);
     const maxDocs = fastify.manager.config.api.limits.get_voters ?? 100;
+
+    if (limit > maxDocs) limit = maxDocs;
 
     // Check if MongoDB is enabled
     if (!fastify.manager.conn.mongodb || fastify.manager.conn.mongodb.enabled === false) {
@@ -26,13 +29,25 @@ async function getVoters(fastify: FastifyInstance, request: FastifyRequest) {
         voter_count: 0,
         voters: []
     };
+    const profile = await fastify.manager.getSystemProfile();
+    response.vote_schema = profile.vote_schema;
+    response.system_table = profile.tables.voters;
+    if (profile.vote_precision !== undefined) response.vote_precision = profile.vote_precision;
+    if (profile.core_symbol) response.core_symbol = profile.core_symbol;
+    if (profile.vote_schema === 'integer-v2') {
+        response.proxy_voting = false;
+        response.time_weighted = false;
+        response.single_choice = true;
+    }
 
     let stateResult: IVoter[];
 
     const dbName = `${fastify.manager.conn.mongodb.database_prefix}_${fastify.manager.chain}`;
     const collection = fastify.mongo.client.db(dbName).collection<IVoter>('voters');
 
-    const mongoQuery: any = {};
+    const mongoQuery: any = {present: {$ne: 0}};
+    if (profile.vote_schema === 'integer-v2') mongoQuery.vote_schema = 'integer-v2';
+    else mongoQuery.$or = [{vote_schema: 'legacy-eosio'}, {vote_schema: {$exists: false}}];
     if (query.producer) {
         mongoQuery.producers = { $all: query.producer.split(',') };
     }
@@ -49,6 +64,9 @@ async function getVoters(fastify: FastifyInstance, request: FastifyRequest) {
                 _id: 0,
                 voter: 1,
                 last_vote_weight: 1,
+                last_vote_amount: 1,
+                staked_units: 1,
+                vote_schema: 1,
                 is_proxy: 1,
                 block_num: 1,
                 staked: 1,
@@ -60,14 +78,7 @@ async function getVoters(fastify: FastifyInstance, request: FastifyRequest) {
         .toArray();
 
     for (const voter of stateResult) {
-        response.voters.push({
-            account: voter.voter,
-            weight: voter.last_vote_weight,
-            staked: voter.staked,
-            is_proxy: voter.is_proxy,
-            last_vote_block: voter.block_num,
-            producers: voter.producers || undefined
-        });
+        response.voters.push(publicVoter(voter, profile.vote_schema, query.listProducers === 'true'));
     }
 
     return response;
