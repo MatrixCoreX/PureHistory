@@ -20,4 +20,9 @@ class PeakTest(unittest.TestCase):
   with self.assertRaisesRegex(AssertionError,'Incomplete'):summary(self.db,self.info,2,self.now,500)
  def test_wrong_parent_is_rejected(self):
   with self.assertRaisesRegex(AssertionError,'parent'):insert_block(self.db,{'block_num':1,'previous':'wrong','id':'x','timestamp':'2026-10-31T11:00:00Z','transactions':[]},1,'expected')
+ def test_lifetime_peak_does_not_expire_after_24hours(self):
+  self.add(1,'2026-10-28T11:00:00Z',99);self.add(2,'2026-10-31T11:00:00Z',3);self.add(3,'2026-10-31T11:00:01Z',0);r=summary(self.db,self.info,3,self.now,500,'all_time');self.assertEqual(r['peak_tps'],198);self.assertEqual(r['scope'],'chain_lifetime');self.assertIsNone(r['window_seconds'])
+ def test_lifetime_requires_genesis_coverage(self):
+  self.add(3,'2026-10-31T11:00:00Z',3)
+  with self.assertRaisesRegex(AssertionError,'genesis'):summary(self.db,self.info,3,self.now,500,'all_time')
 if __name__=='__main__':unittest.main()

@@ -2,7 +2,7 @@
 import argparse,datetime,json,sqlite3,threading,time,urllib.request
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit,parse_qs
 WINDOW=86400
 
 def epoch(value):
@@ -18,27 +18,33 @@ def insert_block(db,block,height,previous):
     db.execute('INSERT INTO blocks VALUES(?,?,?,?,?)',(height,block['id'],block['previous'],epoch(block['timestamp']),len(block['transactions'])))
     return block['id']
 
-def summary(db,info,cursor,stamp,interval):
+def summary(db,info,cursor,stamp,interval,scope='24h'):
     assert cursor>=info['last_irreversible_block_num'],'Incomplete finality backfill'
-    rows=db.execute('SELECT COUNT(*),MIN(height),MAX(height) FROM blocks WHERE time>=? AND time<=? AND height<=?',(stamp-WINDOW,stamp,info['last_irreversible_block_num'])).fetchone()
+    if scope=='all_time':
+        where='height<=?';params=(info['last_irreversible_block_num'],)
+    else:
+        where='time>=? AND time<=? AND height<=?';params=(stamp-WINDOW,stamp,info['last_irreversible_block_num'])
+    rows=db.execute('SELECT COUNT(*),MIN(height),MAX(height),MIN(time) FROM blocks WHERE '+where,params).fetchone()
     assert not rows[0] or rows[0]==rows[2]-rows[1]+1,'Gap in counted canonical blocks'
-    row=db.execute('SELECT height,id,time,receipts FROM blocks WHERE time>=? AND time<=? AND height<=? ORDER BY receipts DESC,height DESC LIMIT 1',(stamp-WINDOW,stamp,info['last_irreversible_block_num'])).fetchone()
+    if scope=='all_time':assert rows[0]==info['last_irreversible_block_num'] and rows[1]==1,'Lifetime statistics must include every block from genesis'
+    row=db.execute('SELECT height,id,time,receipts FROM blocks WHERE '+where+' ORDER BY receipts DESC,height DESC LIMIT 1',params).fetchone()
     peak=None if row is None else {'block_num':row[0],'block_id':row[1],'block_time':iso(row[2]),'receipt_count':row[3],'tps':row[3]*1000/interval}
-    return {'schema_version':1,'available':True,'chain_id':info['chain_id'],'generated_at':iso(stamp),'window_seconds':WINDOW,'window_start':iso(stamp-WINDOW),'window_end':iso(stamp),'block_interval_ms':interval,'head':info['head_block_num'],'LIB':info['last_irreversible_block_num'],'indexed_through':cursor,'complete_through_LIB':True,'block_count':rows[0],'first_counted_block':rows[1],'last_counted_block':rows[2],'peak_tps':peak['tps']if peak else 0,'peak':peak,'source':'canonical_node_rpc_irreversible_receipts','definition':'Maximum native block receipt count divided by fixed block interval; rolling24h; includes empty blocks; not a sustained benchmark'}
+    return {'schema_version':1,'available':True,'chain_id':info['chain_id'],'scope':'chain_lifetime'if scope=='all_time'else'rolling_24h','generated_at':iso(stamp),'window_seconds':None if scope=='all_time'else WINDOW,'window_start':iso(rows[3])if scope=='all_time'else iso(stamp-WINDOW),'window_end':iso(stamp),'block_interval_ms':interval,'head':info['head_block_num'],'LIB':info['last_irreversible_block_num'],'indexed_through':cursor,'complete_through_LIB':True,'block_count':rows[0],'first_counted_block':rows[1],'last_counted_block':rows[2],'peak_tps':peak['tps']if peak else 0,'peak':peak,'source':'canonical_node_rpc_irreversible_receipts','definition':'Maximum native block receipt count divided by fixed block interval; '+('all finalized chain history from genesis'if scope=='all_time'else'rolling24h')+'; includes empty blocks; not a sustained benchmark'}
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--rpc',required=True);p.add_argument('--chain-id',required=True);p.add_argument('--data-dir',required=True);p.add_argument('--port',type=int,default=9052);p.add_argument('--block-interval-ms',type=int,default=500);a=p.parse_args()
     assert len(a.chain_id)==64 and all(c in '0123456789abcdef'for c in a.chain_id)
     assert 1<=a.block_interval_ms<=60000 and urlsplit(a.rpc).scheme in ['http','https']
-    D=Path(a.data_dir);D.mkdir(parents=True,exist_ok=True);DB=D/'canonical-receipts.sqlite';lock=threading.Lock();current={'schema_version':1,'available':False,'chain_id':a.chain_id,'reason':'Initial canonical receipt backfill is running'}
+    D=Path(a.data_dir);D.mkdir(parents=True,exist_ok=True);DB=D/'canonical-receipts.sqlite';lock=threading.Lock();lifetime={};current={'schema_version':1,'available':False,'chain_id':a.chain_id,'reason':'Initial canonical receipt backfill is running'}
     def rpc(method,data={}):
         req=urllib.request.Request(a.rpc.rstrip('/')+'/v1/chain/'+method,json.dumps(data).encode(),{'Content-Type':'application/json'})
         with urllib.request.urlopen(req,timeout=30)as r:return json.load(r)
     def save(name,data):
         temp=D/(name+'.pending');temp.write_text(json.dumps(data,indent=2)+'\n');temp.replace(D/name)
-    def publish(data):
-        with lock:current.clear();current.update(data)
-        save('PROGRESS.json',data)
+    def publish(data,all_time=None):
+        with lock:
+            current.clear();current.update(data);lifetime.clear();lifetime.update(all_time or data)
+        save('PROGRESS.json',all_time or data)
     def worker():
         with sqlite3.connect(DB)as db:
             db.execute('PRAGMA journal_mode=WAL');db.execute('CREATE TABLE IF NOT EXISTS state(k TEXT PRIMARY KEY,v TEXT)');db.execute('CREATE TABLE IF NOT EXISTS blocks(height INTEGER PRIMARY KEY,id TEXT,previous TEXT,time REAL,receipts INTEGER)');db.execute('CREATE INDEX IF NOT EXISTS block_time ON blocks(time)')
@@ -52,17 +58,13 @@ def main():
                     info=rpc('get_info');assert info['chain_id']==a.chain_id,'Native chain identity changed; statistics are unavailable'
                     lib=int(info['last_irreversible_block_num']);assert lib>0
                     cursor=state('cursor');previous=state('previous')
+                    if cursor is not None and not state('lifetime_enabled',False):
+                        coverage=db.execute('SELECT COUNT(*),MIN(height),MAX(height) FROM blocks').fetchone()
+                        if coverage!=(cursor,1,cursor):
+                            db.execute('DELETE FROM blocks');cursor=None;previous=None;put('cursor',None);put('previous',None)
+                        put('lifetime_enabled',True);db.commit()
                     if cursor is None:
-                        low=1;high=lib+1;cutoff=time.time()-WINDOW
-                        first=rpc('get_block',{'block_num_or_id':'1'})
-                        if epoch(first['timestamp'])>=cutoff:begin=1
-                        else:
-                            while low<high:
-                                mid=(low+high)//2
-                                if mid>lib or epoch(rpc('get_block',{'block_num_or_id':str(mid)})['timestamp'])>=cutoff:high=mid
-                                else:low=mid+1
-                            begin=low
-                        cursor=begin-1;previous=None if cursor==0 else rpc('get_block',{'block_num_or_id':str(cursor)})['id'];put('cursor',cursor);put('previous',previous);db.commit()
+                        cursor=0;previous=None;put('cursor',cursor);put('previous',previous);put('lifetime_enabled',True);db.commit()
                     assert cursor<=lib,'Irreversible cursor moved backwards'
                     for height in range(cursor+1,min(lib,cursor+256)+1):
                         block=rpc('get_block',{'block_num_or_id':str(height)});previous=insert_block(db,block,height,previous);cursor=height
@@ -71,15 +73,16 @@ def main():
                     db.commit()
                     if cursor<lib:
                         publish({'schema_version':1,'available':False,'chain_id':a.chain_id,'generated_at':iso(time.time()),'reason':'Initial canonical receipt backfill is running','indexed_through':cursor,'LIB':lib});continue
-                    result=summary(db,info,cursor,time.time(),a.block_interval_ms);publish(result)
-                    db.execute('DELETE FROM blocks WHERE time<?',(time.time()-WINDOW-60,));db.commit()
+                    stamp=time.time();result=summary(db,info,cursor,stamp,a.block_interval_ms);all_time=summary(db,info,cursor,stamp,a.block_interval_ms,'all_time');publish(result,all_time)
                     time.sleep(5)
                 except Exception as error:
                     db.rollback();publish({'schema_version':1,'available':False,'chain_id':a.chain_id,'generated_at':iso(time.time()),'reason':str(error)[:300]});time.sleep(5)
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if urlsplit(self.path).path!='/v2/stats/get_peak_tps':self.send_error(404);return
-            with lock:data=dict(current)
+            scope=parse_qs(urlsplit(self.path).query).get('scope',['24h'])[0]
+            if scope not in ['24h','all_time']:self.send_error(400,'Invalid statistics scope');return
+            with lock:data=dict(lifetime if scope=='all_time'else current)
             raw=json.dumps(data,separators=(',',':')).encode();self.send_response(200 if data.get('available')else 503);self.send_header('Content-Type','application/json');self.send_header('Cache-Control','no-store');self.send_header('Access-Control-Allow-Origin','*');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
         def log_message(self,*args):pass
     threading.Thread(target=worker,daemon=True).start();ThreadingHTTPServer(('127.0.0.1',a.port),Handler).serve_forever()
