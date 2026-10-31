@@ -89,3 +89,5 @@ node build/cli/hyp-control.js sync voters aic
 正式接口采用只读 HTTPS、CORS 和限流，管理端口与数据库仅监听本机。验证覆盖运行中的 PureEOS 链，以及真实旧 EOS ABI、模拟 RPC、序列化和队列组件；旧 EOS 的离线兼容证据不等同于所有旧 EOS 网络的线上认证。
 
 编译、测试范围、原始失败记录和后续事项见[验证说明](docs/QUALIFICATION_20261031.md)。服务路径、资源保护、证书续期和回退方式见[运维说明](docs/OPERATIONS.md)。
+
+可选的 PureEOS 全链 BP 与维护数量统计模块见 [BP 统计](scripts/pureeos-producer-summary/README.md)。该模块由独立观察服务集成，不自动安装到核心 API。

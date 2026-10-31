@@ -89,3 +89,5 @@ A current header height alone does not prove completed action backfill; check qu
 The public deployment exposes read-only HTTPS routes with CORS and rate limits. Administration and dependencies remain on loopback. Qualification covers the running PureEOS chain and authentic legacy EOS ABI, mocked RPC, serialization and queue components. Offline legacy evidence is not certification of every legacy EOS network.
 
 See [qualification](docs/QUALIFICATION_20261031.md) for build/test scope, retained failures and follow-up items. See [operations](docs/OPERATIONS.md) for service paths, resource protection, certificate renewal and rollback.
+
+The optional PureEOS full-chain BP and maintenance counter is documented in [BP summary](scripts/pureeos-producer-summary/README.md). It is integrated by a separate observer and is not automatically installed in the core API.
