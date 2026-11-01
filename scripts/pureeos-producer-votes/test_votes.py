@@ -1,5 +1,5 @@
 import unittest
-from producer_votes import (PROFILE_ABI, SUPPORTED_WASM, accounts_parameter,
+from producer_votes import (PROFILE_ABI, REVIEW_ABI, SUPPORTED_WASM, accounts_parameter,
                             breakdown, name_value, snapshot)
 
 OWNER = 'founderbpgpt'
@@ -36,7 +36,7 @@ class VotesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             breakdown(OWNER, None, None, None)
 
-    def rpc(self, heads, qualified=True, code=None):
+    def rpc(self, heads, qualified=True, code=None, abi=PROFILE_ABI):
         def read(method, args):
             if method == 'get_info':
                 return {'chain_id': CHAIN}
@@ -46,7 +46,7 @@ class VotesTests(unittest.TestCase):
                 return {'vote_schema': 'integer-v2', 'vote_precision': 4}
             if method == 'get_raw_abi':
                 return {'code_hash': (code or next(iter(SUPPORTED_WASM))) if qualified else '0' * 64,
-                        'abi_hash': PROFILE_ABI}
+                        'abi_hash': abi}
             if method == 'get_table_rows':
                 data = {'producersv2': {'total_votes': '100'},
                         'votersv2': {'proxy': '', 'is_proxy': False, 'producers': [OWNER], 'last_vote_amount': '40'},
@@ -81,6 +81,14 @@ class VotesTests(unittest.TestCase):
     def test_rejected_candidate_is_unavailable(self):
         rejected = '590c0be3305d78594ba9ce7a244e755de37e04fac45f085d6fec68c4b2470801'
         self.assertFalse(snapshot(self.rpc(iter(['a' * 64]), code=rejected), (OWNER,), CHAIN)['available'])
+
+    def test_reviewed_abi_preserves_votes_and_requires_qualified_code_pair(self):
+        candidate = '373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb'
+        result = snapshot(self.rpc(iter(['a' * 64] * 2), code=candidate, abi=REVIEW_ABI), (OWNER,), CHAIN)
+        self.assertTrue(result['available'])
+        self.assertEqual(result['rows'][0]['other_votes'], '60')
+        released = '6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62'
+        self.assertFalse(snapshot(self.rpc(iter(['a' * 64]), code=released, abi=REVIEW_ABI), (OWNER,), CHAIN)['available'])
 
 
 if __name__ == '__main__':

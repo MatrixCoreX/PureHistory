@@ -6,7 +6,7 @@
 
 服务监听`127.0.0.1:9053`，经历史域名的精确路径代理访问。最多8路RPC读取、2个并行批次、64项10秒缓存，相同查询合并。缺失、错误或不一致数据不能转成零。HTTPS入口统一发送CORS头，内部服务不重复添加。服务不加载钱包或密钥，不开放写RPC；原有24小时观察服务无需重启。
 
-兼容白名单同时包含原合约及原生回归通过的黑名单递补合约`373b66…ca2ceb`，ABI和整数票权规则不变；被拒绝的`590c0b…470801`候选仍返回不可用。此项准备不代表新合约已部署。
+兼容白名单同时包含原合约及原生回归通过的黑名单递补合约`373b66…ca2ceb`。更新治理说明后的ABI为`038ffb…4f959`，按已验证的WASM/ABI组合匹配，动作编码和整数票权规则不变；被拒绝的`590c0b…470801`候选仍返回不可用。此项准备不代表新合约已部署。
 
 运行：设置`PUREEOS_CHAIN_ID`；可选`PUREEOS_COMMITTED_RPC`；执行`python3 -B server.py`。测试：`python3 -B -m unittest discover -v`。部署须另核对非出块节点角色、实际链身份、HTTPS/CORS及浏览器集成。
 
@@ -18,6 +18,6 @@ Use a nonproducing history node that rejects unconfirmed transactions, currently
 
 The companion listens on`127.0.0.1:9053`, behind an exact history-domain route. It limits RPC concurrency to8, concurrent batches to2and cache entries to64with a10second TTL, coalescing identical requests. Missing or inconsistent data never becomes zero. HTTPS ingress owns CORS; the internal service does not duplicate its header. It loads no keys or wallets and permits no write RPC. The existing24hour observer does not need restarting.
 
-The allowlist accepts the released contract and native-regression-qualified blacklist-backfill contract`373b66…ca2ceb`, with the same ABI and integer voting rules. Rejected candidate`590c0b…470801` remains unavailable. This preparation does not assert that the new contract is deployed.
+The allowlist accepts the released contract and native-regression-qualified blacklist-backfill contract`373b66…ca2ceb`. The ABI with updated governance descriptions is`038ffb…4f959`; only qualified WASM/ABI pairs are accepted. Action encoding and integer voting rules are unchanged. Rejected candidate`590c0b…470801` remains unavailable. This preparation does not assert that the new contract is deployed.
 
 Set`PUREEOS_CHAIN_ID`, optionally`PUREEOS_COMMITTED_RPC`, then run`python3 -B server.py`. Run`python3 -B -m unittest discover -v`. Deployment also requires checking source-node role, actual chain identity, HTTPS/CORS and browser integration.

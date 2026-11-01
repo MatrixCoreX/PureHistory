@@ -7,6 +7,9 @@ import re
 PROFILE_ABI = '3ede155adf72526771d86bbfa789922c8e1394ab7b51ba61e00e189f7bb4efba'
 SUPPORTED_WASM = {'6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62',
                   '373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb'}
+REVIEW_ABI = '038ffbab99e3c261dfc0d1655ddd3acd75b89bfeaae350eb86e4df930564f959'
+SUPPORTED_PROFILES = {(code, PROFILE_ABI) for code in SUPPORTED_WASM} | {
+    ('373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb', REVIEW_ABI)}
 NAME = re.compile(r'[a-z1-5.]{1,12}')
 READERS = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
@@ -81,7 +84,7 @@ def snapshot(rpc, accounts, expected_chain_id, attempts=3):
         # an asynchronous metadata cache and is insufficient as a DB barrier.
         before = rpc('get_upgrade_state', {})
         profile = rpc('get_raw_abi', {'account_name': 'eosio', 'abi_hash': PROFILE_ABI})
-        if profile.get('code_hash') not in SUPPORTED_WASM or profile.get('abi_hash') != PROFILE_ABI:
+        if (profile.get('code_hash'), profile.get('abi_hash')) not in SUPPORTED_PROFILES:
             return {'schema_version': 1, 'available': False, 'chain_id': expected_chain_id,
                     'reason': 'System contract vote schema has not been qualified'}
         metadata = rpc('get_producers', {'json': True, 'limit': 1})
