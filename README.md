@@ -2,7 +2,7 @@
 
 [English](README.en.md)
 
-PureHistory 为 **PureEOS 和旧 EOS** 提供区块、交易、内联操作、账户历史及状态查询。当前版本为 **4.1.0-purehistory.1**。
+PureHistory 为 **PureEOS 和旧 EOS** 提供区块、交易、内联操作、账户历史及状态查询。当前版本为 **1.0.0**。
 
 项目基于 [Hyperion 4.1.0](https://github.com/eosrio/hyperion-history-api)，保留原作者署名和 [MIT 许可证](license.md)。
 

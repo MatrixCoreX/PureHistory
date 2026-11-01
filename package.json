@@ -1,6 +1,6 @@
 {
   "name": "purehistory",
-  "version": "4.1.0-purehistory.1",
+  "version": "1.0.0",
   "description": "PureHistory: PureEOS integer voting and legacy EOS compatible history API, derived from Hyperion",
   "main": "./build/indexer/launcher.js",
   "scripts": {

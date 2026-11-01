@@ -2,7 +2,7 @@
 
 [简体中文](README.md)
 
-PureHistory provides indexed blocks, transactions, inline actions, account history and state APIs for **PureEOS and legacy EOS**. Current version: **4.1.0-purehistory.1**.
+PureHistory provides indexed blocks, transactions, inline actions, account history and state APIs for **PureEOS and legacy EOS**. Current version: **1.0.0**.
 
 It is derived from [Hyperion 4.1.0](https://github.com/eosrio/hyperion-history-api), with the original attribution and [MIT license](license.md) retained.
 
