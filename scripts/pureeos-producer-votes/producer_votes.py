@@ -5,7 +5,8 @@ import re
 
 # Native get_raw_abi hashes packed ABI bytes, not the human-readable .abi JSON.
 PROFILE_ABI = '3ede155adf72526771d86bbfa789922c8e1394ab7b51ba61e00e189f7bb4efba'
-SUPPORTED_WASM = {'6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62'}
+SUPPORTED_WASM = {'6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62',
+                  '373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb'}
 NAME = re.compile(r'[a-z1-5.]{1,12}')
 READERS = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 

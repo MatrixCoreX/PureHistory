@@ -2,7 +2,7 @@ import datetime
 PERIOD=1461*86400*2
 LIMIT=(1<<32)-1
 INVALID_RANK=((1<<64)-1)<<64
-SUPPORTED_WASM={'6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62','5f25a25816fc6db145dbd811d9c24dd99c9b9b1fd260b8e16a045476d0c3c11a'}
+SUPPORTED_WASM={'6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62','5f25a25816fc6db145dbd811d9c24dd99c9b9b1fd260b8e16a045476d0c3c11a','373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb'}
 def truth(value):return value is True or str(value).lower()in ['1','true']
 def all_rows(rpc,table):
  rows=[];lower='';seen=set()

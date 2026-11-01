@@ -6,6 +6,8 @@
 
 服务监听`127.0.0.1:9053`，经历史域名的精确路径代理访问。最多8路RPC读取、2个并行批次、64项10秒缓存，相同查询合并。缺失、错误或不一致数据不能转成零。HTTPS入口统一发送CORS头，内部服务不重复添加。服务不加载钱包或密钥，不开放写RPC；原有24小时观察服务无需重启。
 
+兼容白名单同时包含原合约及原生回归通过的黑名单递补合约`373b66…ca2ceb`，ABI和整数票权规则不变；被拒绝的`590c0b…470801`候选仍返回不可用。此项准备不代表新合约已部署。
+
 运行：设置`PUREEOS_CHAIN_ID`；可选`PUREEOS_COMMITTED_RPC`；执行`python3 -B server.py`。测试：`python3 -B -m unittest discover -v`。部署须另核对非出块节点角色、实际链身份、HTTPS/CORS及浏览器集成。
 
 # PureEOS self and other votes
@@ -15,5 +17,7 @@ The read-only `GET /v2/state/get_producer_votes?accounts=founderbpgpt,openaibp43
 Use a nonproducing history node that rejects unconfirmed transactions, currently`127.0.0.1:8890`. Native database-queue `get_upgrade_state` head IDs bound each read, with at most3attempts on a changing head. A producer may hold speculative changes under the same head and is unsuitable. Unknown WASM/ABI, native vote schema or precision is unavailable. Existing legacy EOS history interfaces remain unchanged.
 
 The companion listens on`127.0.0.1:9053`, behind an exact history-domain route. It limits RPC concurrency to8, concurrent batches to2and cache entries to64with a10second TTL, coalescing identical requests. Missing or inconsistent data never becomes zero. HTTPS ingress owns CORS; the internal service does not duplicate its header. It loads no keys or wallets and permits no write RPC. The existing24hour observer does not need restarting.
+
+The allowlist accepts the released contract and native-regression-qualified blacklist-backfill contract`373b66…ca2ceb`, with the same ABI and integer voting rules. Rejected candidate`590c0b…470801` remains unavailable. This preparation does not assert that the new contract is deployed.
 
 Set`PUREEOS_CHAIN_ID`, optionally`PUREEOS_COMMITTED_RPC`, then run`python3 -B server.py`. Run`python3 -B -m unittest discover -v`. Deployment also requires checking source-node role, actual chain identity, HTTPS/CORS and browser integration.

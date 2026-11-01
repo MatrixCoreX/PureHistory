@@ -8,7 +8,9 @@
 
 本模块不修改维护状态、处罚、奖励或节点配置，也不推断在线进程数。容量增长时间由已核验的链上 slot 规则计算，实际链上状态优先。多次 RPC 读取不是固定区块快照。
 
-测试：在本目录执行 `python3 -B -m unittest -v test_summary.py`。三个用例覆盖等待/生效的区别、注销记录和真实空表。
+兼容白名单包含经过原生回归验证的黑名单递补合约 `373b66…ca2ceb`，保留原合约支持；被拒绝的候选 `590c0b…470801` 不受支持。兼容准备不表示新合约已通过链上审查或部署。
+
+测试：在本目录执行 `python3 -B -m unittest -v test_summary.py`。五个用例覆盖等待/生效的区别、注销记录、真实空表、升级后封禁排除及被拒绝的候选。
 
 # PureEOS BP summary
 
@@ -20,4 +22,6 @@ A BP awaiting handoff may still be a native proposer/finalizer and must remain o
 
 This module changes no maintenance flags, penalties, rewards or node configuration and does not infer online process counts. Estimated capacity growth follows qualified on-chain slot rules; actual chain state takes precedence. Multiple RPC reads are not a fixed-block snapshot.
 
-Run `python3 -B -m unittest -v test_summary.py` in this directory. Three cases cover pending/effective separation, deregistered records and genuinely empty tables.
+The allowlist includes the native-regression-qualified blacklist-backfill contract `373b66…ca2ceb` and retains released contracts. Rejected candidate `590c0b…470801` remains unsupported. Compatibility preparation does not mean the new contract has completed on-chain review or deployment.
+
+Run `python3 -B -m unittest -v test_summary.py` in this directory. Five cases cover pending/effective separation, deregistered records, genuinely empty tables, blacklist exclusion across upgrades and the rejected candidate.

@@ -36,7 +36,7 @@ class VotesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             breakdown(OWNER, None, None, None)
 
-    def rpc(self, heads, qualified=True):
+    def rpc(self, heads, qualified=True, code=None):
         def read(method, args):
             if method == 'get_info':
                 return {'chain_id': CHAIN}
@@ -45,7 +45,7 @@ class VotesTests(unittest.TestCase):
             if method == 'get_producers':
                 return {'vote_schema': 'integer-v2', 'vote_precision': 4}
             if method == 'get_raw_abi':
-                return {'code_hash': next(iter(SUPPORTED_WASM)) if qualified else '0' * 64,
+                return {'code_hash': (code or next(iter(SUPPORTED_WASM))) if qualified else '0' * 64,
                         'abi_hash': PROFILE_ABI}
             if method == 'get_table_rows':
                 data = {'producersv2': {'total_votes': '100'},
@@ -69,6 +69,18 @@ class VotesTests(unittest.TestCase):
         self.assertFalse(snapshot(self.rpc(iter(['a' * 64]), False), (OWNER,), CHAIN)['available'])
         with self.assertRaisesRegex(ValueError, 'identity'):
             snapshot(self.rpc(iter([])), (OWNER,), 'c' * 64)
+
+    def test_qualified_upgrade_preserves_exact_vote_snapshot(self):
+        released = '6ed4cccc3aac05231f95e63b5464325315668bea2997ddb15de0b29768bf3a62'
+        candidate = '373b66b2994c3131ce6c9c3d4526fdf836c0ac2c36d8265b2239d61e75ca2ceb'
+        a = snapshot(self.rpc(iter(['a' * 64] * 2), code=released), (OWNER,), CHAIN)
+        b = snapshot(self.rpc(iter(['a' * 64] * 2), code=candidate), (OWNER,), CHAIN)
+        self.assertTrue(b['available'])
+        self.assertEqual(a['rows'], b['rows'])
+
+    def test_rejected_candidate_is_unavailable(self):
+        rejected = '590c0be3305d78594ba9ce7a244e755de37e04fac45f085d6fec68c4b2470801'
+        self.assertFalse(snapshot(self.rpc(iter(['a' * 64]), code=rejected), (OWNER,), CHAIN)['available'])
 
 
 if __name__ == '__main__':
