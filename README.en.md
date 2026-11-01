@@ -91,3 +91,5 @@ The public deployment exposes read-only HTTPS routes with CORS and rate limits. 
 See [qualification](docs/QUALIFICATION_20261031.md) for build/test scope, retained failures and follow-up items. See [operations](docs/OPERATIONS.md) for service paths, resource protection, certificate renewal and rollback.
 
 The optional PureEOS full-chain BP and maintenance counter is documented in [BP summary](scripts/pureeos-producer-summary/README.md). It is integrated by a separate observer and is not automatically installed in the core API.
+
+The read-only batch endpoint for registered BP total, self and other votes is documented in [Vote breakdown](scripts/pureeos-producer-votes/README.md). It checks the qualified PureEOS integer-vote profile and preserves exact amounts. Unqualified legacy EOS breakdowns remain unavailable; existing historical interfaces stay compatible.

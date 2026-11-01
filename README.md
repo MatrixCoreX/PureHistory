@@ -91,3 +91,5 @@ node build/cli/hyp-control.js sync voters aic
 编译、测试范围、原始失败记录和后续事项见[验证说明](docs/QUALIFICATION_20261031.md)。服务路径、资源保护、证书续期和回退方式见[运维说明](docs/OPERATIONS.md)。
 
 可选的 PureEOS 全链 BP 与维护数量统计模块见 [BP 统计](scripts/pureeos-producer-summary/README.md)。该模块由独立观察服务集成，不自动安装到核心 API。
+
+注册 BP 的总票权、自投和他人票权批量接口见 [投票拆分](scripts/pureeos-producer-votes/README.md)。该只读扩展核验当前 PureEOS 整数投票配置，保留精确数值；旧 EOS 未核验的拆分返回不可用，原有历史接口保持兼容。
