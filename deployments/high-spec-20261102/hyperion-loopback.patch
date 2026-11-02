@@ -1,0 +1,13 @@
+diff --git a/src/indexer/modules/controller.ts b/src/indexer/modules/controller.ts
+index 03dc36d..9562eb6 100644
+--- a/src/indexer/modules/controller.ts
++++ b/src/indexer/modules/controller.ts
+@@ -404,7 +404,7 @@ export class LocalHyperionController {
+         this.setWebSocketHandlers();
+ 
+         // Start listening on the specified control port
+-        this.localController.listen(controlPort, (token) => {
++        this.localController.listen('127.0.0.1', controlPort, (token) => {
+             if (token) {
+                 hLog(`Local controller listening on port ${controlPort}`);
+             }
