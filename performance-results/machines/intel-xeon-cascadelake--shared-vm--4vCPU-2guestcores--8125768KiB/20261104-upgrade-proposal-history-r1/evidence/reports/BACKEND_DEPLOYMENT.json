@@ -1,0 +1,20 @@
+{
+  "status": "INSTALLED",
+  "UTC": "2026-11-04T09:33:12.433752+00:00",
+  "files": {
+    "build/upgrade-history/query.js.map": "64da32a06f29a40b7779bd0d86a13958b6f86f449ceb3024e6bbb96d00eaf579",
+    "build/upgrade-history/query.js": "c73c3ded285f8a75556e029a9529455a1b8fe1f8938b3348dea646ccff7e1480",
+    "build/api/routes/v2-history/get_upgrade_proposals/index.js.map": "af04457eb52d74d24b0e4ceb6b83692eb689a7495eb11f70afe3dacc227a1457",
+    "build/api/routes/v2-history/get_upgrade_proposals/index.js": "717415f56e914a9774687df6cf195a1f34338af43a57d31ea38f8851b1d939a1",
+    "src/upgrade-history/query.ts": "cfc0153a05bc37483a082a0f5853c9d3cb7dcabdd0320fdb029305ca88795f6a",
+    "src/api/routes/v2-history/get_upgrade_proposals/index.ts": "9c7a53ebe5b0974fdb66ebbc83138f2f4221cef223854c2b0f6bc157a0210f80"
+  },
+  "protected_unchanged": {
+    "build/api/server.js": "d64b8b19368d5ca30425c2347b0a6e629ec14d9840ec0612458ef3de41840c99",
+    "build/api/routes/v2-history/get_actions/get_actions.js": "1dea5cf7394403ac0da59d7419c97518c494cd789adaa08bba49d2b51055e01d",
+    "src/api/server.ts": "cbc82cd2a773defc3a3dcbe63a9d5d90a146203a34082f16e093aec5183ae03c",
+    "src/api/routes/v2-history/get_actions/get_actions.ts": "66f103058c1d972be7f36c941c287c3efa999c45edeaca898aed35b98ab9ca52",
+    "config/connections.json": "17805051d0f8b2c78efa90de7cebac7f23a20213049ff1fffa98fd4ce77c7b8b"
+  },
+  "scope": "Existing read-only API app restart only; no indexer/projector/node/DB/contract changes"
+}

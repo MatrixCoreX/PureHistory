@@ -1,0 +1,99 @@
+{
+  "status": "PASS",
+  "variants": [
+    {
+      "language": "zh",
+      "theme": "dark",
+      "width": 1366,
+      "height": 768,
+      "proposal_ids": [
+        "3",
+        "2",
+        "1"
+      ],
+      "indexed_vetoes": 24,
+      "canonical_executions": 2,
+      "geometry": {
+        "width": 187,
+        "offset": 187,
+        "bar": "none",
+        "padding": "36px"
+      },
+      "keyboard_last_route_reachable": true,
+      "default_hashes_folded": true
+    },
+    {
+      "language": "en",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "proposal_ids": [
+        "3",
+        "2",
+        "1"
+      ],
+      "indexed_vetoes": 24,
+      "canonical_executions": 2,
+      "geometry": {
+        "width": 187,
+        "offset": 187,
+        "bar": "none",
+        "padding": "36px"
+      },
+      "keyboard_last_route_reachable": true,
+      "default_hashes_folded": true
+    },
+    {
+      "language": "zh",
+      "theme": "light",
+      "width": 390,
+      "height": 844,
+      "proposal_ids": [
+        "3",
+        "2",
+        "1"
+      ],
+      "indexed_vetoes": 24,
+      "canonical_executions": 2,
+      "geometry": {
+        "width": 187,
+        "offset": 187,
+        "bar": "none",
+        "padding": "36px"
+      },
+      "keyboard_last_route_reachable": true,
+      "default_hashes_folded": true
+    },
+    {
+      "language": "en",
+      "theme": "dark",
+      "width": 844,
+      "height": 390,
+      "proposal_ids": [
+        "3",
+        "2",
+        "1"
+      ],
+      "indexed_vetoes": 24,
+      "canonical_executions": 2,
+      "geometry": {
+        "width": 158,
+        "offset": 158,
+        "bar": "none",
+        "padding": "36px"
+      },
+      "keyboard_last_route_reachable": true,
+      "default_hashes_folded": true
+    }
+  ],
+  "errors": [],
+  "build_files": {
+    "index.html": "59b3f1f02493bfe9767dcf61bad7a126a073500cc9440a0a1bf11ac6de04152f",
+    "theme.js": "c2d9493dd607f3ffb3afd4b08878be511b2b34a62f5b1066ae1fb4f82f3e5a71",
+    "favicon.svg": "17560d9ab093039df5f78d70f1cdc13c02fe5194b57940883fd42851c54a2c35",
+    "language.js": "5d6344b19e427c392a6236ec5e770cef68630aa90848197781f0d18f5c7fb8f5",
+    "assets/index-DUbnafJU.css": "3e00623702907f32fab832b45930fbe8422dc4933e57dc33d4260d7339ac084a",
+    "assets/index-tPfNY3iZ.js": "2ceaf7da83f0014265b4b94a7ed31786871fad4dd9ad1bb405f3df13ba37dfbc"
+  },
+  "UTC": "2026-11-04T09:44:30.157Z"
+}

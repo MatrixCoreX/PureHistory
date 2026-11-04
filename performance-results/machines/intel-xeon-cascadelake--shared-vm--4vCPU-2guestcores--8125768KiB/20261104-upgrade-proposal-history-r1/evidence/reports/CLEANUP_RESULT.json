@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "UTC": "2026-11-04T09:45:49.879155+00:00",
+  "removed": [
+    "/opt/pureeos-upgrade-history-20261104-r1/frontend",
+    "/opt/pureeos-upgrade-history-20261104-r1/backend",
+    "/opt/pureeos-upgrade-history-20261104-r1/backend.failed-r1"
+  ],
+  "allocated_removed_MiB": 10.703,
+  "net_free_increase_MiB": 12.031,
+  "available_GiB": 105.367,
+  "original26nodePIDs_preserved": true,
+  "active_source_and_static_preserved": true,
+  "scope": "Only stopped frontend/backend build trees, with verified source/module/static/evidence archives and local copies first; shared dependencies, all private keys, current chain/history retained"
+}

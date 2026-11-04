@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "files": {
+    "build/upgrade-history/query.js.map": "64da32a06f29a40b7779bd0d86a13958b6f86f449ceb3024e6bbb96d00eaf579",
+    "build/upgrade-history/query.js": "c73c3ded285f8a75556e029a9529455a1b8fe1f8938b3348dea646ccff7e1480",
+    "build/api/routes/v2-history/get_upgrade_proposals/index.js.map": "af04457eb52d74d24b0e4ceb6b83692eb689a7495eb11f70afe3dacc227a1457",
+    "build/api/routes/v2-history/get_upgrade_proposals/index.js": "717415f56e914a9774687df6cf195a1f34338af43a57d31ea38f8851b1d939a1"
+  },
+  "source_sha256": "25bf6c6648aa5fc0ae7c6393cb11f88066c048d1e22c8c220c8de8bd4f85f394"
+}

@@ -1,0 +1,27 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{createRequire}=require('node:module');
+const K='/opt/pureeos-upgrade-history-20261104-r1',R='/opt/pureeos-keynet-20261103-r2',S=K+'/frontend/dist',origin='https://aic-test.matrixai.one';
+const {chromium}=createRequire(R+'/history-source/package.json')('playwright'),phase=process.argv[2];assert(['preview','public'].includes(phase));
+(async()=>{const browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']}),out=K+'/browser-'+phase,variants=[],errors=[];fs.mkdirSync(out,{recursive:true});let page;
+try{for(const v of [{language:'zh',theme:'dark',width:1366,height:768},{language:'en',theme:'light',width:1440,height:900},{language:'zh',theme:'light',width:390,height:844},{language:'en',theme:'dark',width:844,height:390}]){
+ const context=await browser.newContext({viewport:{width:v.width,height:v.height}});context.setDefaultTimeout(60000);await context.addInitScript(v=>{localStorage.setItem('pureeos-explorer.language.v1',v.language);localStorage.setItem('pureeos-explorer.theme.v1',v.theme);},v);page=await context.newPage();page.on('pageerror',e=>errors.push(String(e)));
+ if(phase==='preview')await page.route(origin+'/**',route=>{const u=new URL(route.request().url());if(/^\/(api|rpc|history|relay)(\/|$)/.test(u.pathname))return route.continue();const p=path.resolve(S,'.'+(u.pathname==='/'?'/index.html':u.pathname));assert(p.startsWith(S+'/'));if(fs.existsSync(p)&&fs.statSync(p).isFile())return route.fulfill({status:200,contentType:({'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml'})[path.extname(p)]||'application/octet-stream',body:fs.readFileSync(p)});return route.continue();});
+ await page.goto(origin+'/#/upgrades',{waitUntil:'domcontentloaded'});await page.locator('.upgrade-heading').waitFor();
+ const panel=page.locator('.developer-proposal-history'),rows=panel.locator('tbody tr');await rows.nth(2).waitFor();
+ assert.deepEqual(await rows.evaluateAll(xs=>xs.map(x=>x.dataset.proposalId)),['3','2','1']);
+ const current=rows.first();assert(/Veto threshold reached|已达否决门槛/.test(await current.innerText()));assert((await current.innerText()).includes('24'));
+ for(const i of [1,2])assert(/Executed|已执行/.test(await rows.nth(i).innerText()));
+ assert.equal(await panel.locator('details[open]').count(),0);await current.locator('summary').click();assert.equal(await current.locator('.upgrade-history-votes>div').count(),24);
+ const hashes=await current.locator('code').allInnerTexts();assert.equal(hashes.length,5);assert(hashes.every(h=>/^[a-f\d]{64}$/.test(h)));assert(hashes.includes('bee8320e5e761703f469fb6b0f8c0744479b0bf329f709867bb613855808845a'));await current.locator('summary').click();
+ if(v.language==='en')assert(!/[\u4e00-\u9fff]/.test(await panel.innerText()),'Untranslated history');
+ await panel.screenshot({path:out+'/history-'+v.language+'-'+v.width+'.png'});
+ const mobile=v.width<=760;if(mobile){await page.getByRole('button',{name:v.language==='zh'?'打开导航':'Open navigation',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().x>=-1);}
+ const nav=page.locator('.sidebar nav'),geometry=await nav.evaluate(el=>({width:el.clientWidth,offset:el.offsetWidth,bar:getComputedStyle(el).scrollbarWidth,padding:getComputedStyle(el.closest('.sidebar')).paddingTop}));
+ assert.equal(geometry.width,geometry.offset);assert.equal(geometry.bar,'none');assert.equal(geometry.padding,'36px');
+ const last=nav.locator('a').last();await last.focus();await page.waitForFunction(()=>{const n=document.querySelector('.sidebar nav'),r=n.lastElementChild.getBoundingClientRect(),b=n.getBoundingClientRect();return r.bottom<=b.bottom+1&&r.top>=b.top-1;});
+ await page.screenshot({path:out+'/navigation-'+v.language+'-'+v.width+'.png'});await nav.locator('a[href="#/upgrades"]').click();
+ if(mobile)await page.waitForFunction(()=>!document.querySelector('.sidebar').classList.contains('open'));
+ assert((await page.evaluate(()=>document.documentElement.scrollWidth))<=v.width+1);
+ if(v.language==='en'&&v.width===1440){await page.route('**/v2/history/get_upgrade_proposals?*',route=>route.fulfill({status:503,contentType:'application/json',body:'{"message":"HISTORY_UNAVAILABLE"}'}));await panel.getByLabel('Refresh proposal history').click();await panel.getByText('The proposal history index is unavailable. Please retry later.').waitFor();assert.equal(await rows.count(),0);await page.unroute('**/v2/history/get_upgrade_proposals?*');await panel.getByLabel('Refresh proposal history').click();await rows.nth(2).waitFor();}
+ variants.push({...v,proposal_ids:['3','2','1'],indexed_vetoes:24,canonical_executions:2,geometry,keyboard_last_route_reachable:true,default_hashes_folded:true});await context.close();
+}assert.deepEqual(errors,[]);fs.writeFileSync(out+'/RESULT.json',JSON.stringify({status:'PASS',variants,errors,build_files:JSON.parse(fs.readFileSync(K+'/FRONTEND_RESULT.json')).files,UTC:new Date().toISOString()},null,2)+'\n');console.log('HISTORY AND NAVIGATION BROWSER PASS '+phase);
+}catch(e){fs.writeFileSync(out+'/FAILURE-'+Date.now()+'.json',JSON.stringify({error:String(e),variants,body:await page?.locator('body').innerText().catch(()=>'' )},null,2));throw e;}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
