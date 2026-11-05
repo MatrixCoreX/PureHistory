@@ -1,0 +1,3 @@
+# Actual current-chain canonical history integration
+
+Functional backend sourcea4f11a8/full33checks remained unchanged. Currentchain09f10e50 has8nativecreationIDs with4canonicalcancellations/4actualexecutions and completecounter coverage; actual browser4variants confirmed. Public-key derivedindexed-receipts projection is explicitly pinned tochain09/KEY7523. All12actualpayments are represented across owned-key histories with exactcanonicalblockIDs, fees and principal, matched in4normalpublic variants/16keyviews;6transactionreceiptpages passed. Unknown lifetime coverage is not inferred. Existing read-only companions retain current-root/configpins. No fabricated histories, oldchainmixing or newDBservices.
